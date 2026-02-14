@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "135665648666",
+    "project_id": "consultancy-f51c5",
+    "storage_bucket": "consultancy-f51c5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:135665648666:android:15adab9ff9c71e39553da3",
+        "android_client_info": {
+          "package_name": "com.example.project_management"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAlR0jMX9JIL2It4-E6J6UhZf1h0tNmdw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
