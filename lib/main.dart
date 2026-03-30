@@ -5,6 +5,7 @@ import 'features/admin/admin_home.dart';
 import 'features/user/user_home.dart';
 import 'services/auth_service.dart';
 import 'services/database_service.dart';
+import 'ui_helpers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,9 +19,15 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Login Portal',
+      title: 'Project App',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.indigo, useMaterial3: true),
+      theme: ThemeData(
+        fontFamily: 'Poppins',
+        primaryColor: AppColors.primary,
+        scaffoldBackgroundColor: AppColors.background,
+        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
+        useMaterial3: true,
+      ),
       home: const LoginPage(),
     );
   }
@@ -55,6 +62,60 @@ class _LoginPageState extends State<LoginPage> {
     _nameController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  void _showForgotPasswordDialog() {
+    final TextEditingController resetEmailController = TextEditingController(text: _emailController.text);
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Reset Password'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Enter your email address and we will send you a password reset link.'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: resetEmailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (resetEmailController.text.isEmpty) return;
+                try {
+                  await _authService.sendPasswordResetEmail(resetEmailController.text.trim());
+                  if (mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Password reset email sent!')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              child: const Text('Send Link'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _handleAuth() async {
@@ -152,75 +213,64 @@ class _LoginPageState extends State<LoginPage> {
     final isMobile = screenWidth < 600;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: AppColors.background,
       body: Center(
         child: SingleChildScrollView(
           child: Container(
             width: isMobile ? screenWidth * 0.9 : 450,
             margin: const EdgeInsets.symmetric(vertical: 40),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 30,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(isMobile ? 24.0 : 40.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Logo and Title
-                    _buildHeader(),
-                    const SizedBox(height: 40),
+            child: GlassCard(
+              padding: EdgeInsets.zero,
+              child: Padding(
+                padding: EdgeInsets.all(isMobile ? 24.0 : 40.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Logo and Title
+                      _buildHeader(),
+                      const SizedBox(height: 40),
 
-                    // Role Selection (Visible only in Signup mode?)
-                    // The user's flow says "Role Verification" -> "Admin Path" / "Work Path". 
-                    // Usually role is selected at signup or assigned by admin. 
-                    // I'll keep it visible for Signup, but for login, we rely on DB.
-                    if (!isLoginMode) ...[
-                      _buildRoleSelector(),
+                      // Role Selection
+                      if (!isLoginMode) ...[
+                        _buildRoleSelector(),
+                        const SizedBox(height: 32),
+                      ],
+
+                      // Name Field
+                      if (!isLoginMode) ...[
+                        _buildNameField(),
+                        const SizedBox(height: 20),
+                      ],
+
+                      // Email Field
+                      _buildEmailField(),
+                      const SizedBox(height: 20),
+
+                      // Password Field
+                      _buildPasswordField(),
+
+                      // Confirm Password
+                      if (!isLoginMode) ...[
+                        const SizedBox(height: 20),
+                        _buildConfirmPasswordField(),
+                      ],
+
+                      const SizedBox(height: 12),
+
+                      // Forgot Password
+                      if (isLoginMode) _buildForgotPassword(),
                       const SizedBox(height: 32),
-                    ],
 
-                    // Name Field (only for signup)
-                    if (!isLoginMode) ...[
-                      _buildNameField(),
+                      // Login/Signup Button
+                      _buildActionButton(),
                       const SizedBox(height: 20),
+
+                      // Toggle between Login and Signup
+                      _buildToggleAuthMode(),
                     ],
-
-                    // Email Field
-                    _buildEmailField(),
-                    const SizedBox(height: 20),
-
-                    // Password Field
-                    _buildPasswordField(),
-
-                    // Confirm Password (only for signup)
-                    if (!isLoginMode) ...[
-                      const SizedBox(height: 20),
-                      _buildConfirmPasswordField(),
-                    ],
-
-                    const SizedBox(height: 12),
-
-                    // Forgot Password (only for login)
-                    if (isLoginMode) _buildForgotPassword(),
-                    const SizedBox(height: 32),
-
-                    // Login/Signup Button
-                    _buildActionButton(),
-                    const SizedBox(height: 20),
-
-                    // Toggle between Login and Signup
-                    _buildToggleAuthMode(),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -523,9 +573,7 @@ class _LoginPageState extends State<LoginPage> {
     return Align(
       alignment: Alignment.centerRight,
       child: TextButton(
-        onPressed: () {
-          // Forgot password logic can be added here
-        },
+        onPressed: _showForgotPasswordDialog,
         style: TextButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         ),
@@ -542,55 +590,9 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildActionButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _handleAuth,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF4F46E5),
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          shadowColor: const Color(0xFF4F46E5).withOpacity(0.3),
-        ).copyWith(
-          elevation: WidgetStateProperty.resolveWith<double>((
-            Set<WidgetState> states,
-          ) {
-            if (states.contains(WidgetState.hovered)) {
-              return 8;
-            }
-            return 2;
-          }),
-          backgroundColor: WidgetStateProperty.resolveWith<Color>((
-            Set<WidgetState> states,
-          ) {
-            if (states.contains(WidgetState.hovered)) {
-              return const Color(0xFF4338CA);
-            }
-            return const Color(0xFF4F46E5);
-          }),
-        ),
-        child: _isLoading
-            ? const SizedBox(
-              height: 24,
-              width: 24,
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2,
-              ),
-            )
-            : Text(
-              isLoginMode ? 'Login' : 'Sign Up',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
-            ),
-      ),
+    return GradientButton(
+      text: isLoginMode ? 'Login' : 'Sign Up',
+      onPressed: _isLoading ? () {} : _handleAuth,
     );
   }
 

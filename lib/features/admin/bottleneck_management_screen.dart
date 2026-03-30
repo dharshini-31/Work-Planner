@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../ui_helpers.dart';
 
 class AdminBottleneckScreen extends StatelessWidget {
   const AdminBottleneckScreen({Key? key}) : super(key: key);
@@ -11,9 +12,14 @@ class AdminBottleneckScreen extends StatelessWidget {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
+        backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text('Bottleneck Management'),
+          backgroundColor: AppColors.primary,
+          title: const Text('Bottleneck Management', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
           bottom: const TabBar(
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: Colors.white,
             tabs: [
               Tab(text: 'Reported'),
               Tab(text: 'Pending'),
@@ -21,7 +27,7 @@ class AdminBottleneckScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: TabBarView(
+        body: const TabBarView(
           children: [
             _BottleneckList(status: 'Reported'),
             _BottleneckList(status: 'Pending'),
@@ -49,53 +55,66 @@ class _BottleneckList extends StatelessWidget {
         final bottlenecks = snapshot.data!.docs;
 
         if (bottlenecks.isEmpty) {
-          return Center(child: Text('No $status bottlenecks'));
+          return Center(child: Text('No $status bottlenecks', style: const TextStyle(color: AppColors.textSecondary, fontSize: 16)));
         }
 
         return ListView.builder(
+          padding: const EdgeInsets.only(top: 24, left: 16, right: 16, bottom: 100),
           itemCount: bottlenecks.length,
           itemBuilder: (context, index) {
             final doc = bottlenecks[index];
             final data = doc.data() as Map<String, dynamic>;
             final id = doc.id;
 
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: ExpansionTile(
-                title: Text(data['taskTitle'] ?? 'Unknown Task'),
-                subtitle: Text('Reported by: ${data['reportedByUid']}'),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Description:', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(data['description'] ?? 'No description'),
-                        const SizedBox(height: 10),
-                        if (data['adminNotes'] != null && data['adminNotes'].isNotEmpty) ...[
-                          Text('Admin Notes:', style: TextStyle(fontWeight: FontWeight.bold)),
-                          Text(data['adminNotes']),
-                          const SizedBox(height: 10),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: GlassCard(
+                padding: EdgeInsets.zero,
+                child: ExpansionTile(
+                  collapsedIconColor: AppColors.primary,
+                  iconColor: AppColors.primary,
+                  title: Text(data['taskTitle'] ?? 'Unknown Task', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  subtitle: Text('Reported by: ${data['reportedByUid']}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Description:', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                          const SizedBox(height: 4),
+                          Text(data['description'] ?? 'No description', style: const TextStyle(color: AppColors.textSecondary)),
+                          const SizedBox(height: 16),
+                          if (data['adminNotes'] != null && data['adminNotes'].isNotEmpty) ...[
+                            const Text('Admin Notes:', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            const SizedBox(height: 4),
+                            Text(data['adminNotes'], style: const TextStyle(color: AppColors.textSecondary)),
+                            const SizedBox(height: 16),
+                          ],
+                          if (status != 'Solved')
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () => _updateStatus(context, id, 'Pending'),
+                                  child: const Text('Mark Pending', style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                  ),
+                                  onPressed: () => _solveContainer(context, id, data['adminNotes']),
+                                  child: const Text('Resolve', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
                         ],
-                        if (status != 'Solved')
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton(
-                                onPressed: () => _updateStatus(context, id, 'Pending'),
-                                child: const Text('Mark Pending'),
-                              ),
-                              ElevatedButton(
-                                onPressed: () => _solveContainer(context, id, data['adminNotes']),
-                                child: const Text('Resolve'),
-                              ),
-                            ],
-                          ),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
@@ -113,15 +132,16 @@ class _BottleneckList extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Resolve Bottleneck'),
+        title: const Text('Resolve Bottleneck', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
         content: TextField(
           controller: noteController,
           decoration: const InputDecoration(labelText: 'Corrective Action / Notes'),
           maxLines: 3,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary))),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             onPressed: () {
               FirebaseFirestore.instance.collection('bottlenecks').doc(id).update({
                 'status': 'Solved',
@@ -129,7 +149,7 @@ class _BottleneckList extends StatelessWidget {
               });
               Navigator.pop(context);
             },
-            child: const Text('Mark Solved'),
+            child: const Text('Mark Solved', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

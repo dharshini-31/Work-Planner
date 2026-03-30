@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/database_service.dart';
+import '../../ui_helpers.dart';
 import 'dashboard_screen.dart';
 import 'task_management_screen.dart';
 import 'bottleneck_management_screen.dart';
@@ -18,6 +19,7 @@ class _AdminHomeState extends State<AdminHome> {
   final DatabaseService _db = DatabaseService();
   bool _initialized = false;
   Timestamp? _lastLoginTimestamp;
+  bool _hasNewUserNotification = false;
 
   final List<Widget> _screens = [
     const AdminDashboardScreen(),
@@ -30,6 +32,7 @@ class _AdminHomeState extends State<AdminHome> {
   void initState() {
     super.initState();
     _listenForNewLogins();
+    _listenForNewUsers();
   }
 
   void _listenForNewLogins() {
@@ -65,40 +68,113 @@ class _AdminHomeState extends State<AdminHome> {
     });
   }
 
+  bool _usersInitialized = false;
+  Timestamp? _lastUserTimestamp;
+
+  void _listenForNewUsers() {
+    _db.getNewUsersStream().listen((snapshot) {
+      if (snapshot.docs.isNotEmpty) {
+        final data = snapshot.docs.first.data() as Map<String, dynamic>;
+        final timestamp = data['createdAt'] as Timestamp?;
+        
+        if (timestamp == null) return;
+
+        // On first load, just set the timestamp so we don't notify for old users
+        if (!_usersInitialized) {
+          _lastUserTimestamp = timestamp;
+          _usersInitialized = true;
+          return;
+        }
+
+        // If new timestamp is after the last known one, show notification
+        if (_lastUserTimestamp != null && timestamp.compareTo(_lastUserTimestamp!) > 0) {
+          _lastUserTimestamp = timestamp;
+          if (mounted) {
+            setState(() {
+              _hasNewUserNotification = true;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('that new user is added'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 4),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: _screens[_currentIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
+      bottomNavigationBar: Container(
+        margin: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(30),
+          child: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: (index) {
+              setState(() {
+                _currentIndex = index;
+                if (index == 1) {
+                  _hasNewUserNotification = false;
+                }
+              });
+            },
+            selectedItemColor: AppColors.primary,
+            unselectedItemColor: Colors.grey[400],
+            showSelectedLabels: true,
+            showUnselectedLabels: false,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            elevation: 0,
+            items: [
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.dashboard_outlined),
+                activeIcon: Icon(Icons.dashboard),
+                label: 'Dashboard',
+              ),
+              BottomNavigationBarItem(
+                icon: Badge(
+                  isLabelVisible: _hasNewUserNotification,
+                  child: const Icon(Icons.task_outlined),
+                ),
+                activeIcon: Badge(
+                  isLabelVisible: _hasNewUserNotification,
+                  child: const Icon(Icons.task),
+                ),
+                label: 'Tasks',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.warning_amber_outlined),
+                activeIcon: Icon(Icons.warning_amber),
+                label: 'Issues',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.person_outline),
+                activeIcon: Icon(Icons.person),
+                label: 'Profile',
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.task_outlined),
-            selectedIcon: Icon(Icons.task),
-            label: 'Tasks',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.warning_amber_outlined),
-            selectedIcon: Icon(Icons.warning_amber),
-            label: 'Bottlenecks',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+        ),
       ),
     );
   }

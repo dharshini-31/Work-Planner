@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/auth_service.dart';
+import '../../ui_helpers.dart';
 
 class UserDashboardScreen extends StatelessWidget {
   const UserDashboardScreen({super.key});
@@ -9,47 +10,79 @@ class UserDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final uid = AuthService().currentUser?.uid;
 
-    if (uid == null) return const Center(child: Text('Please log in'));
+    if (uid == null) {
+      return const Scaffold(body: Center(child: Text('Please log in')));
+    }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Dashboard')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Task Progress', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('tasks')
-                  .where('assignedToUid', isEqualTo: uid)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const LinearProgressIndicator();
-                final tasks = snapshot.data!.docs;
-                final total = tasks.length;
-                final completed = tasks.where((doc) => doc['status'] == 'Completed').length;
-                final progress = total == 0 ? 0.0 : completed / total;
+      backgroundColor: AppColors.background,
+      body: Column(
+        children: [
+          const DashboardHeader(
+            title: 'My Dashboard',
+            subtitle: 'Welcome back,',
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Task Progress', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  const SizedBox(height: 16),
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection('tasks')
+                        .where('assignedToUid', isEqualTo: uid)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                      final tasks = snapshot.data!.docs;
+                      final total = tasks.length;
+                      final completed = tasks.where((doc) => doc['status'] == 'Completed').length;
+                      final progress = total == 0 ? 0.0 : completed / total;
 
-                return Column(
-                  children: [
-                    LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 20,
-                      backgroundColor: Colors.grey[200],
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    const SizedBox(height: 8),
-                    Text('${(progress * 100).toInt()}% Completed'),
-                    const SizedBox(height: 24),
-                    _buildStatusSummary(tasks),
-                  ],
-                );
-              },
+                      return Column(
+                        children: [
+                          GlassCard(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('Overall Progress', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                    Text('${(progress * 100).toInt()}%', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: LinearProgressIndicator(
+                                    value: progress,
+                                    minHeight: 12,
+                                    backgroundColor: Colors.grey[200],
+                                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('Status Summary', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildStatusSummary(tasks),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -60,27 +93,36 @@ class UserDashboardScreen extends StatelessWidget {
     final completed = tasks.where((d) => d['status'] == 'Completed').length;
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _summaryCard('To-Do', todo, Colors.red),
-        _summaryCard('In-Progress', inProgress, Colors.orange),
-        _summaryCard('Completed', completed, Colors.green),
+        Expanded(child: _summaryCard('To-Do', todo, Colors.redAccent, Icons.assignment_late_outlined)),
+        const SizedBox(width: 12),
+        Expanded(child: _summaryCard('In-Progress', inProgress, Colors.orangeAccent, Icons.hourglass_bottom)),
+        const SizedBox(width: 12),
+        Expanded(child: _summaryCard('Done', completed, Colors.green, Icons.check_circle_outline)),
       ],
     );
   }
 
-  Widget _summaryCard(String title, int count, Color color) {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Text(count.toString(), style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
-            const SizedBox(height: 4),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-          ],
-        ),
+  Widget _summaryCard(String title, int count, Color color, IconData icon) {
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 12),
+          Text(count.toString(), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          const SizedBox(height: 4),
+          Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+        ],
       ),
     );
   }

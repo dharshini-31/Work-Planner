@@ -47,4 +47,36 @@ class AuthService {
   Future<void> signOut() async {
     await _auth.signOut();
   }
+
+  // Send Password Reset Email
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      throw e.message ?? 'An error occurred while sending password reset email';
+    } catch (e) {
+      throw 'An error occurred';
+    }
+  }
+
+  // Change Password
+  Future<void> changePassword(String currentPassword, String newPassword) async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null && user.email != null) {
+        AuthCredential credential = EmailAuthProvider.credential(
+          email: user.email!,
+          password: currentPassword,
+        );
+        await user.reauthenticateWithCredential(credential);
+        await user.updatePassword(newPassword);
+      } else {
+        throw 'No user is currently signed in.';
+      }
+    } on FirebaseAuthException catch (e) {
+      throw e.message ?? 'An error occurred while changing password';
+    } catch (e) {
+      throw 'An error occurred';
+    }
+  }
 }

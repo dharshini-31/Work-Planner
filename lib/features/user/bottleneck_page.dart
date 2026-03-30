@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/database_service.dart';
 import '../../services/auth_service.dart';
+import '../../ui_helpers.dart';
 
 class UserBottleneckPage extends StatefulWidget {
   const UserBottleneckPage({super.key});
@@ -14,40 +15,106 @@ class _UserBottleneckPageState extends State<UserBottleneckPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (uid == null) return const Center(child: Text('Not logged in'));
+    if (uid == null) return const Scaffold(body: Center(child: Text('Not logged in')));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Bottlenecks')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showReportDialog(),
-        label: const Text('Report Issue'),
-        icon: const Icon(Icons.report_problem),
-      ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: DatabaseService().getBottlenecks(reportedByUid: uid),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final bottlenecks = snapshot.data!;
-          if (bottlenecks.isEmpty) return const Center(child: Text('No bottlenecks reported'));
+      backgroundColor: AppColors.background,
+      body: Column(
+        children: [
+          const DashboardHeader(
+            title: 'My Issues',
+            subtitle: 'Report and review,',
+          ),
+          Expanded(
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: DatabaseService().getBottlenecks(reportedByUid: uid),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
+                }
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                
+                final bottlenecks = snapshot.data!;
+                if (bottlenecks.isEmpty) {
+                  return const Center(child: Text('No bottlenecks reported', style: TextStyle(color: AppColors.textSecondary, fontSize: 16)));
+                }
 
-          return ListView.builder(
-            itemCount: bottlenecks.length,
-            itemBuilder: (context, index) {
-              final b = bottlenecks[index];
-              return Card(
-                child: ListTile(
-                  title: Text(b['taskTitle'] ?? 'Unknown Task'),
-                  subtitle: Text('Status: ${b['status']}\n${b['description']}'),
-                  isThreeLine: true,
-                  trailing: b['status'] == 'Solved' 
-                      ? const Icon(Icons.check_circle, color: Colors.green)
-                      : const Icon(Icons.hourglass_empty, color: Colors.orange),
-                ),
-              );
-            },
-          );
-        },
+                return ListView.builder(
+                  padding: const EdgeInsets.only(top: 24, left: 16, right: 16, bottom: 100),
+                  itemCount: bottlenecks.length,
+                  itemBuilder: (context, index) {
+                    final b = bottlenecks[index];
+                    final isSolved = b['status'] == 'Solved';
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: GlassCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: (isSolved ? Colors.green : Colors.orangeAccent).withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                isSolved ? Icons.check_circle : Icons.hourglass_empty,
+                                color: isSolved ? Colors.green : Colors.orangeAccent,
+                                size: 28,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    b['taskTitle'] ?? 'Unknown Task',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    b['description'] ?? '',
+                                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: (isSolved ? Colors.green : Colors.orangeAccent).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      b['status'] ?? 'Pending',
+                                      style: TextStyle(
+                                        color: isSolved ? Colors.green : Colors.orangeAccent,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
+      floatingActionButton: GradientButton(
+        text: 'Report Issue',
+        icon: Icons.report_problem,
+        onPressed: () => _showReportDialog(),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -61,7 +128,7 @@ class _UserBottleneckPageState extends State<UserBottleneckPage> {
 
 class _ReportDialog extends StatefulWidget {
   final String uid;
-  const _ReportDialog({super.key, required this.uid});
+  const _ReportDialog({required this.uid});
 
   @override
   State<_ReportDialog> createState() => _ReportDialogState();
@@ -134,9 +201,19 @@ class _ReportDialogState extends State<_ReportDialog> {
         reportedByUid: widget.uid,
         description: _descController.text,
       );
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bottleneck reported successfully!'), backgroundColor: Colors.green),
+        );
+      }
     } catch (e) {
-      // Handle error
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error reporting bottleneck: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

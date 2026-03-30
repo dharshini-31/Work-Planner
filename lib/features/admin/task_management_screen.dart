@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../services/database_service.dart';
+import '../../ui_helpers.dart';
 
 class AdminTaskManagementScreen extends StatefulWidget {
   const AdminTaskManagementScreen({super.key});
@@ -23,63 +24,126 @@ class _AdminTaskManagementScreenState extends State<AdminTaskManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Task Management')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showTaskDialog(),
-        label: const Text('New Task'),
-        icon: const Icon(Icons.add),
+      backgroundColor: AppColors.background,
+      body: Column(
+        children: [
+          const DashboardHeader(
+            title: 'Task Management',
+            subtitle: 'Assign and track,',
+          ),
+          Expanded(
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _databaseService.getTasks(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final tasks = snapshot.data ?? [];
+                if (tasks.isEmpty) {
+                  return const Center(child: Text('No tasks found', style: TextStyle(color: AppColors.textSecondary)));
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.only(top: 24, left: 16, right: 16, bottom: 100),
+                  itemCount: tasks.length,
+                  itemBuilder: (context, index) {
+                    final task = tasks[index];
+                    final date = (task['deadline'] as Timestamp).toDate();
+                    final formattedDate = DateFormat.yMMMd().format(date);
+                    
+                    final String status = task['status'] ?? 'To-Do';
+                    Color statusColor = Colors.grey;
+                    if (status == 'To-Do') statusColor = Colors.redAccent;
+                    if (status == 'In-Progress') statusColor = Colors.orangeAccent;
+                    if (status == 'Completed') statusColor = Colors.green;
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: GlassCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    task['title'],
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.textPrimary),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: statusColor.withOpacity(0.5)),
+                                  ),
+                                  child: Text(
+                                    status,
+                                    style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                const Icon(Icons.person_outline, size: 16, color: AppColors.textSecondary),
+                                const SizedBox(width: 6),
+                                Text('Assigned to: ${task['assignedToName']}', style: const TextStyle(color: AppColors.textSecondary)),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
+                                const SizedBox(width: 6),
+                                Text('Deadline: $formattedDate', style: const TextStyle(color: AppColors.textSecondary)),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            const Divider(color: Colors.black12),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.flag, size: 16, color: task['priority'] == 'High' ? Colors.redAccent : Colors.grey),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Priority: ${task['priority']}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: task['priority'] == 'High' ? Colors.redAccent : AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+                                  onPressed: () => _showTaskDialog(task: task, taskId: task['id']),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _databaseService.getTasks(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final tasks = snapshot.data ?? [];
-          if (tasks.isEmpty) {
-            return const Center(child: Text('No tasks found'));
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: tasks.length,
-            itemBuilder: (context, index) {
-              final task = tasks[index];
-              final date = (task['deadline'] as Timestamp).toDate();
-              final formattedDate = DateFormat.yMMMd().format(date);
-              
-              return Card(
-                elevation: 2,
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  title: Text(task['title'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Assigned to: ${task['assignedToName']}'),
-                      Text('Deadline: $formattedDate • Priority: ${task['priority']}'),
-                      Text('Status: ${task['status']}', style: TextStyle(
-                        color: task['status'] == 'Completed' ? Colors.green 
-                               : task['status'] == 'In-Progress' ? Colors.orange 
-                               : Colors.red
-                      )),
-                    ],
-                  ),
-                  trailing: PopupMenuButton(
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                         // Edit logic if needed, for now just status update via simple means
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                    ],
-                  ),
-                  isThreeLine: true,
-                ),
-              );
-            },
-          );
-        },
+      floatingActionButton: GradientButton(
+        text: 'New Task',
+        icon: Icons.add,
+        onPressed: () => _showTaskDialog(),
       ),
     );
   }
@@ -114,7 +178,9 @@ class _TaskDialogState extends State<TaskDialog> {
       _descController.text = widget.task!['description'];
       _selectedUserUid = widget.task!['assignedToUid'];
       _selectedUserName = widget.task!['assignedToName'];
-      _priority = widget.task!['priority'];
+      _priority = ['Low', 'Medium', 'High'].contains(widget.task!['priority'])
+          ? widget.task!['priority']
+          : 'Medium';
       _deadline = (widget.task!['deadline'] as Timestamp).toDate();
     }
   }
@@ -149,6 +215,15 @@ class _TaskDialogState extends State<TaskDialog> {
                      final users = snapshot.data!;
                      // Filter only roles that are 'User' perhaps? Assuming admin can assign to anyone or just 'User' role.
                      final assignableUsers = users.where((u) => u['role'] == 'User').toList();
+
+                     // Ensure the initially selected user is in the list, even if their role changed or they are deleted
+                     if (_selectedUserUid != null && !assignableUsers.any((u) => u['uid'] == _selectedUserUid)) {
+                       assignableUsers.add({
+                         'uid': _selectedUserUid,
+                         'name': _selectedUserName ?? 'Unknown User',
+                         'role': 'Unknown',
+                       });
+                     }
                      
                      return DropdownButtonFormField<String>(
                        value: _selectedUserUid,
