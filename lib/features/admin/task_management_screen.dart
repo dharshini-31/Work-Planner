@@ -67,9 +67,12 @@ class _AdminTaskManagementScreenState extends State<AdminTaskManagementScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Expanded(
-                                  child: Text(
-                                    task['title'],
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.textPrimary),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(left: 6.0, top: 4.0, bottom: 4.0),
+                                    child: Text(
+                                      task['title'],
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.textPrimary, height: 1.3),
+                                    ),
                                   ),
                                 ),
                                 Container(
@@ -295,8 +298,15 @@ class _TaskDialogState extends State<TaskDialog> {
              deadline: _deadline,
            );
         } else {
-          // Update logic not strictly requested for full crud but implied. 
-          // Skipping detailed update logic for brevity, focusing on Create.
+           await _db.updateTask(
+             taskId: widget.taskId!,
+             title: _titleController.text,
+             description: _descController.text,
+             assignedToUid: _selectedUserUid!,
+             assignedToName: _selectedUserName ?? 'Unknown',
+             priority: _priority,
+             deadline: _deadline,
+           );
         }
         if (mounted) Navigator.pop(context);
       } catch (e) {

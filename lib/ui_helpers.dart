@@ -35,7 +35,6 @@ class GlassCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: padding,
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.7),
           borderRadius: BorderRadius.circular(borderRadius),
@@ -52,7 +51,10 @@ class GlassCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(borderRadius),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: child,
+            child: Padding(
+              padding: padding,
+              child: child,
+            ),
           ),
         ),
       ),
@@ -64,23 +66,25 @@ class GradientButton extends StatelessWidget {
   final String text;
   final IconData? icon;
   final VoidCallback onPressed;
+  final Gradient? gradient;
 
   const GradientButton({
     super.key,
     required this.text,
     required this.onPressed,
     this.icon,
+    this.gradient,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
+        gradient: gradient ?? AppColors.primaryGradient,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
+            color: (gradient is LinearGradient ? (gradient as LinearGradient).colors.first : AppColors.primary).withOpacity(0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           )
@@ -146,9 +150,12 @@ class DashboardHeader extends StatelessWidget {
               style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 16, fontFamily: 'Poppins'),
             ),
             const SizedBox(height: 8),
-            Text(
-              title,
-              style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
+            Padding(
+              padding: const EdgeInsets.only(left: 2.0, top: 4.0, bottom: 4.0),
+              child: Text(
+                title,
+                style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
+              ),
             ),
           ],
         ),

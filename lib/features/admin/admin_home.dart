@@ -6,6 +6,7 @@ import 'dashboard_screen.dart';
 import 'task_management_screen.dart';
 import 'bottleneck_management_screen.dart';
 import 'profile_screen.dart';
+import 'users_list_screen.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -25,6 +26,7 @@ class _AdminHomeState extends State<AdminHome> {
     const AdminDashboardScreen(),
     const AdminTaskManagementScreen(),
     const AdminBottleneckScreen(),
+    const AdminUsersListScreen(),
     const AdminProfileScreen(),
   ];
 
@@ -69,38 +71,42 @@ class _AdminHomeState extends State<AdminHome> {
   }
 
   bool _usersInitialized = false;
-  Timestamp? _lastUserTimestamp;
 
   void _listenForNewUsers() {
     _db.getNewUsersStream().listen((snapshot) {
-      if (snapshot.docs.isNotEmpty) {
-        final data = snapshot.docs.first.data() as Map<String, dynamic>;
-        final timestamp = data['createdAt'] as Timestamp?;
-        
-        if (timestamp == null) return;
+      bool isFirstLoad = !_usersInitialized;
+      _usersInitialized = true;
 
-        // On first load, just set the timestamp so we don't notify for old users
-        if (!_usersInitialized) {
-          _lastUserTimestamp = timestamp;
-          _usersInitialized = true;
-          return;
-        }
+      for (var change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          final data = change.doc.data() as Map<String, dynamic>;
+          final Timestamp? ts = data['createdAt'] as Timestamp?;
 
-        // If new timestamp is after the last known one, show notification
-        if (_lastUserTimestamp != null && timestamp.compareTo(_lastUserTimestamp!) > 0) {
-          _lastUserTimestamp = timestamp;
+          if (isFirstLoad) {
+            if (ts != null) {
+              if (DateTime.now().difference(ts.toDate()).inMinutes > 2) {
+                continue;
+              }
+            } else {
+              continue; // skip if no timestamp
+            }
+          }
+
           if (mounted) {
             setState(() {
               _hasNewUserNotification = true;
             });
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('that new user is added'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 4),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
+            // Only popup snackbar for truly live events (not login triggers)
+            if (!isFirstLoad) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('A new user has registered!'),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 4),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
           }
         }
       }
@@ -133,7 +139,7 @@ class _AdminHomeState extends State<AdminHome> {
             onTap: (index) {
               setState(() {
                 _currentIndex = index;
-                if (index == 1) {
+                if (index == 3) {
                   _hasNewUserNotification = false;
                 }
               });
@@ -151,21 +157,26 @@ class _AdminHomeState extends State<AdminHome> {
                 activeIcon: Icon(Icons.dashboard),
                 label: 'Dashboard',
               ),
-              BottomNavigationBarItem(
-                icon: Badge(
-                  isLabelVisible: _hasNewUserNotification,
-                  child: const Icon(Icons.task_outlined),
-                ),
-                activeIcon: Badge(
-                  isLabelVisible: _hasNewUserNotification,
-                  child: const Icon(Icons.task),
-                ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.task_outlined),
+                activeIcon: Icon(Icons.task),
                 label: 'Tasks',
               ),
               const BottomNavigationBarItem(
                 icon: Icon(Icons.warning_amber_outlined),
                 activeIcon: Icon(Icons.warning_amber),
                 label: 'Issues',
+              ),
+              BottomNavigationBarItem(
+                icon: Badge(
+                  isLabelVisible: _hasNewUserNotification,
+                  child: const Icon(Icons.group_outlined),
+                ),
+                activeIcon: Badge(
+                  isLabelVisible: _hasNewUserNotification,
+                  child: const Icon(Icons.group),
+                ),
+                label: 'Users',
               ),
               const BottomNavigationBarItem(
                 icon: Icon(Icons.person_outline),

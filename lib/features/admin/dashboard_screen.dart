@@ -33,7 +33,23 @@ class AdminDashboardScreen extends StatelessWidget {
                     child: _buildTaskStatusPieChart(),
                   ),
                   const SizedBox(height: 32),
-                  const Text('Burn-Down Chart (Demo)', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Burn-Down Chart', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                      Row(
+                        children: [
+                          Container(width: 12, height: 2, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          const Text('Ideal', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                          const SizedBox(width: 12),
+                          Container(width: 12, height: 4, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          const Text('Actual', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        ],
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                   GlassCard(
                     padding: const EdgeInsets.all(24),
@@ -77,7 +93,14 @@ class AdminDashboardScreen extends StatelessWidget {
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance.collection('users').snapshots(),
                 builder: (context, userSnapshot) {
-                  final int userCount = userSnapshot.hasData ? userSnapshot.data!.docs.length : 0;
+                  int userCount = 0;
+                  if (userSnapshot.hasData) {
+                    final docs = userSnapshot.data!.docs;
+                    userCount = docs.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      return data['role']?.toString().toLowerCase() != 'admin';
+                    }).length;
+                  }
                   return _buildStatCard('Active Users', userCount.toString(), Colors.purple, Icons.people, width: cardWidth);
                 },
               ),
@@ -177,61 +200,142 @@ class AdminDashboardScreen extends StatelessWidget {
   }
 
   Widget _buildBurnDownChart() {
-    return SizedBox(
-      height: 200,
-      width: double.infinity,
-      child: LineChart(
-        LineChartData(
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: 2,
-            getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.withOpacity(0.2), strokeWidth: 1),
-          ),
-          titlesData: FlTitlesData(
-            show: true,
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) => Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text('D${value.toInt()}', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('tasks').snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+        }
+
+        final tasks = snapshot.data!.docs;
+        if (tasks.isEmpty) {
+          return const SizedBox(height: 200, child: Center(child: Text('No tasks to map.', style: TextStyle(color: AppColors.textSecondary))));
+        }
+
+        int totalTasks = tasks.length;
+        int completedTasks = tasks.where((t) => t['status'] == 'Completed').length;
+        int openTasks = totalTasks - completedTasks;
+
+        DateTime earliest = DateTime.now();
+        for (var t in tasks) {
+          final data = t.data() as Map<String, dynamic>;
+          if (data['createdAt'] != null) {
+            final dt = (data['createdAt'] as Timestamp).toDate();
+            if (dt.isBefore(earliest)) earliest = dt;
+          }
+        }
+        
+        earliest = DateTime(earliest.year, earliest.month, earliest.day);
+
+        List<String> xLabels = [];
+        for (int i = 0; i < 7; i++) {
+          final d = earliest.add(Duration(days: i));
+          xLabels.add("${d.month}/${d.day}");
+        }
+
+        final daysPassed = DateTime.now().difference(earliest).inDays;
+        double currentDayIndex = (daysPassed + 1).toDouble();
+        if (currentDayIndex > 7) currentDayIndex = 7;
+        if (currentDayIndex < 1) currentDayIndex = 1;
+
+        double maxY = totalTasks.toDouble();
+        if (maxY < 5) maxY = 5;
+
+        return SizedBox(
+          height: 220,
+          width: double.infinity,
+          child: LineChart(
+            LineChartData(
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval: (maxY / 5).ceilToDouble() == 0 ? 1 : (maxY / 5).ceilToDouble(),
+                getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.withOpacity(0.2), strokeWidth: 1),
+              ),
+              titlesData: FlTitlesData(
+                show: true,
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, meta) {
+                      int idx = value.toInt() - 1;
+                      if (idx >= 0 && idx < 7) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(xLabels[idx], style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                        );
+                      }
+                      return const SizedBox();
+                    },
+                    reservedSize: 30,
+                    interval: 1,
+                  ),
                 ),
-                reservedSize: 30,
-                interval: 2,
+                leftTitles: AxisTitles(
+                  axisNameWidget: const Padding(padding: EdgeInsets.only(bottom: 2.0), child: Text('Tasks', style: TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w600))),
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, meta) {
+                      if (value % 1 == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6.0),
+                          child: Text(value.toInt().toString(), style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.bold)),
+                        );
+                      }
+                      return const SizedBox();
+                    },
+                    reservedSize: 32,
+                    interval: (maxY / 5).ceilToDouble() == 0 ? 1 : (maxY / 5).ceilToDouble(),
+                  ),
+                ),
               ),
-            ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) => Text(value.toInt().toString(), style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                reservedSize: 30,
-                interval: 2,
-              ),
+              borderData: FlBorderData(show: false),
+              minX: 1,
+              maxX: 7,
+              minY: 0,
+              maxY: maxY + 1,
+              lineBarsData: [
+                // Ideal Line
+                LineChartBarData(
+                  spots: [
+                    FlSpot(1, totalTasks.toDouble()),
+                    FlSpot(7, 0),
+                  ],
+                  isCurved: false,
+                  color: Colors.grey.withOpacity(0.5),
+                  barWidth: 2,
+                  isStrokeCapRound: true,
+                  dashArray: [5, 5],
+                  dotData: const FlDotData(show: false),
+                ),
+                // Actual Progress Line
+                LineChartBarData(
+                  spots: [
+                    FlSpot(1, totalTasks.toDouble()),
+                    if (currentDayIndex > 1) FlSpot(currentDayIndex, openTasks.toDouble()) else FlSpot(1, openTasks.toDouble()),
+                  ],
+                  isCurved: false,
+                  color: AppColors.primary,
+                  barWidth: 3,
+                  isStrokeCapRound: true,
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                      radius: 4,
+                      color: Colors.white,
+                      strokeWidth: 2,
+                      strokeColor: AppColors.primary,
+                    ),
+                  ),
+                  belowBarData: BarAreaData(show: true, color: AppColors.primary.withOpacity(0.1)),
+                ),
+              ],
             ),
           ),
-          borderData: FlBorderData(show: false),
-          minX: 0,
-          maxX: 7,
-          minY: 0,
-          maxY: 6,
-          lineBarsData: [
-            LineChartBarData(
-              spots: const [
-                FlSpot(0, 4), FlSpot(2, 2), FlSpot(4, 5), FlSpot(6, 3.1), FlSpot(7, 4),
-              ],
-              isCurved: true,
-              color: AppColors.primary,
-              barWidth: 4,
-              isStrokeCapRound: true,
-              dotData: FlDotData(show: true, getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(radius: 4, color: Colors.white, strokeWidth: 2, strokeColor: AppColors.primary)),
-              belowBarData: BarAreaData(show: true, color: AppColors.primary.withOpacity(0.1)),
-            ),
-          ],
-        ),
-      ),
+        );
+      },
     );
   }
 }

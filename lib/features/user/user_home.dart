@@ -17,10 +17,9 @@ class UserHome extends StatefulWidget {
 
 class _UserHomeState extends State<UserHome> {
   int _currentIndex = 0;
-  bool _hasNewTask = false;
+  int _newTaskCount = 0;
   final DatabaseService _db = DatabaseService();
   bool _tasksInitialized = false;
-  Timestamp? _lastTaskTimestamp;
 
   final List<Widget> _screens = [
     const UserDashboardScreen(),
@@ -40,32 +39,52 @@ class _UserHomeState extends State<UserHome> {
     if (uid == null) return;
 
     _db.getNewTasksStream(uid).listen((snapshot) {
-      if (snapshot.docs.isNotEmpty) {
-        final data = snapshot.docs.first.data() as Map<String, dynamic>;
-        final timestamp = data['createdAt'] as Timestamp?;
+      bool isFirstLoad = !_tasksInitialized;
+      _tasksInitialized = true;
 
-        if (timestamp == null) return;
+      for (var change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          final data = change.doc.data() as Map<String, dynamic>;
+          final Timestamp? ts = data['createdAt'] as Timestamp?;
 
-        if (!_tasksInitialized) {
-          _lastTaskTimestamp = timestamp;
-          _tasksInitialized = true;
-          return;
-        }
+          // If this is the initial stream load, only notify for tasks created in the last 2 minutes.
+          // This supports single-device testing where an Admin logs out and User logs in.
+          if (isFirstLoad) {
+            if (ts != null) {
+              if (DateTime.now().difference(ts.toDate()).inMinutes > 2) {
+                continue;
+              }
+            } else {
+              continue;
+            }
+          }
 
-        if (_lastTaskTimestamp != null && timestamp.compareTo(_lastTaskTimestamp!) > 0) {
-          _lastTaskTimestamp = timestamp;
           if (_currentIndex != 1 && mounted) {
             setState(() {
-              _hasNewTask = true;
+              _newTaskCount++;
             });
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('You have a new task assigned!'),
-                backgroundColor: Colors.indigo,
-                duration: Duration(seconds: 4),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
+            
+            // Only popup a snackbar for truly live events (not on login dump)
+            if (!isFirstLoad) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('You have a new task assigned!'),
+                  backgroundColor: Colors.indigo,
+                  duration: const Duration(seconds: 4),
+                  behavior: SnackBarBehavior.floating,
+                  action: SnackBarAction(
+                    label: 'View',
+                    textColor: Colors.white,
+                    onPressed: () {
+                      setState(() {
+                        _currentIndex = 1;
+                        _newTaskCount = 0;
+                      });
+                    },
+                  ),
+                ),
+              );
+            }
           }
         }
       }
@@ -98,7 +117,7 @@ class _UserHomeState extends State<UserHome> {
               setState(() {
                 _currentIndex = index;
                 if (index == 1) {
-                  _hasNewTask = false;
+                  _newTaskCount = 0;
                 }
               });
             },
@@ -117,11 +136,15 @@ class _UserHomeState extends State<UserHome> {
               ),
               BottomNavigationBarItem(
                 icon: Badge(
-                  isLabelVisible: _hasNewTask,
+                  isLabelVisible: _newTaskCount > 0,
+                  label: Text('$_newTaskCount', style: const TextStyle(color: Colors.white)),
+                  backgroundColor: Colors.red,
                   child: const Icon(Icons.list_alt_outlined),
                 ),
                 activeIcon: Badge(
-                  isLabelVisible: _hasNewTask,
+                  isLabelVisible: _newTaskCount > 0,
+                  label: Text('$_newTaskCount', style: const TextStyle(color: Colors.white)),
+                  backgroundColor: Colors.red,
                   child: const Icon(Icons.list_alt),
                 ),
                 label: 'Tasks',

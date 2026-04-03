@@ -50,7 +50,7 @@ class UserDashboardScreen extends StatelessWidget {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text('Overall Progress', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                    const Padding(padding: EdgeInsets.only(left: 2.0), child: Text('Overall Progress', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary))),
                                     Text('${(progress * 100).toInt()}%', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary)),
                                   ],
                                 ),
@@ -70,7 +70,7 @@ class UserDashboardScreen extends StatelessWidget {
                           const SizedBox(height: 32),
                           const Align(
                             alignment: Alignment.centerLeft,
-                            child: Text('Status Summary', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            child: Padding(padding: EdgeInsets.only(left: 2.0), child: Text('Status Summary', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary))),
                           ),
                           const SizedBox(height: 16),
                           _buildStatusSummary(tasks),

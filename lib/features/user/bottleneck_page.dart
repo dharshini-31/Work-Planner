@@ -95,6 +95,32 @@ class _UserBottleneckPageState extends State<UserBottleneckPage> {
                                       ),
                                     ),
                                   ),
+                                  if (isSolved && b['adminNotes'] != null && b['adminNotes'].toString().isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.withOpacity(0.05),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.green.withOpacity(0.2)),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Resolution Note:',
+                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            b['adminNotes'],
+                                            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),

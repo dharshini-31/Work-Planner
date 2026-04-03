@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class DatabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -76,11 +77,14 @@ class DatabaseService {
     required DateTime deadline,
   }) async {
     try {
+      final currentUser = FirebaseAuth.instance.currentUser;
       await _firestore.collection('tasks').add({
         'title': title,
         'description': description,
         'assignedToUid': assignedToUid,
         'assignedToName': assignedToName,
+        'assignedByEmail': currentUser?.email ?? 'admin@system.local',
+        'assignedByUid': currentUser?.uid,
         'priority': priority,
         'deadline': Timestamp.fromDate(deadline),
         'status': 'To-Do',
@@ -88,6 +92,30 @@ class DatabaseService {
       });
     } catch (e) {
       print('Error creating task: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateTask({
+    required String taskId,
+    required String title,
+    required String description,
+    required String assignedToUid,
+    required String assignedToName,
+    required String priority,
+    required DateTime deadline,
+  }) async {
+    try {
+      await _firestore.collection('tasks').doc(taskId).update({
+        'title': title,
+        'description': description,
+        'assignedToUid': assignedToUid,
+        'assignedToName': assignedToName,
+        'priority': priority,
+        'deadline': Timestamp.fromDate(deadline),
+      });
+    } catch (e) {
+      print('Error updating task: $e');
       rethrow;
     }
   }
@@ -255,8 +283,6 @@ class DatabaseService {
   Stream<QuerySnapshot> getNewUsersStream() {
     return _firestore
         .collection('users')
-        .orderBy('createdAt', descending: true)
-        .limit(1)
         .snapshots();
   }
 
@@ -264,8 +290,6 @@ class DatabaseService {
     return _firestore
         .collection('tasks')
         .where('assignedToUid', isEqualTo: assignedToUid)
-        .orderBy('createdAt', descending: true)
-        .limit(1)
         .snapshots();
   }
 }

@@ -32,6 +32,18 @@ class _ModernProfileScreenState extends State<ModernProfileScreen>
   bool _isLoadingData = true;
   bool _isSaving = false;
 
+  String _getFlag(String code) {
+    switch (code) {
+      case '+91': return '🇮🇳';
+      case '+1': return '🇺🇸';
+      case '+44': return '🇬🇧';
+      case '+61': return '🇦🇺';
+      case '+971': return '🇦🇪';
+      case '+234': return '🇳🇬';
+      default: return '🇮🇳';
+    }
+  }
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -56,8 +68,17 @@ class _ModernProfileScreenState extends State<ModernProfileScreen>
       final data = await DatabaseService().getUserProfile(user.uid);
       if (data != null) {
         setState(() {
-          _firstNameController.text = data['firstName'] ?? '';
-          _lastNameController.text = data['lastName'] ?? '';
+          final fullName = data['name'] as String? ?? '';
+          final nameParts = fullName.trim().split(' ');
+          
+          String fName = data['firstName'] as String? ?? '';
+          if (fName.isEmpty && nameParts.isNotEmpty) fName = nameParts.first;
+          
+          String lName = data['lastName'] as String? ?? '';
+          if (lName.isEmpty && nameParts.length > 1) lName = nameParts.sublist(1).join(' ');
+
+          _firstNameController.text = fName;
+          _lastNameController.text = lName;
           _usernameController.text = data['username'] ?? '';
           _emailController.text = data['email'] ?? user.email ?? '';
           _phoneController.text = data['phone'] ?? '';
@@ -209,6 +230,7 @@ class _ModernProfileScreenState extends State<ModernProfileScreen>
     Widget? customPrefix,
     Widget? customSuffix,
     VoidCallback? onTap,
+    bool readOnly = false,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
@@ -227,7 +249,7 @@ class _ModernProfileScreenState extends State<ModernProfileScreen>
         child: TextFormField(
           controller: controller,
           initialValue: controller == null ? initialValue : null,
-          readOnly: isDropdown || onTap != null,
+          readOnly: isDropdown || onTap != null || readOnly,
           onTap: onTap,
           keyboardType: keyboardType,
           style: const TextStyle(
@@ -300,6 +322,7 @@ class _ModernProfileScreenState extends State<ModernProfileScreen>
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Text(
           widget.role == 'admin' ? 'Admin Profile' : 'Edit Profile',
           style: TextStyle(
@@ -351,123 +374,12 @@ class _ModernProfileScreenState extends State<ModernProfileScreen>
                 child: Column(
                   children: [
                     const SizedBox(height: 20),
-                    // Profile Image
-                    Center(
-                      child: Stack(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const CircleAvatar(
-                              radius: 50,
-                              backgroundImage: NetworkImage(
-                                'https://i.pravatar.cc/150?img=47',
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF2575FC),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.edit,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '${_firstNameController.text} ${_lastNameController.text}'
-                              .trim()
-                              .isEmpty
-                          ? 'Your Name'
-                          : '${_firstNameController.text} ${_lastNameController.text}',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: cardColor,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    Text(
-                      _usernameController.text.isEmpty
-                          ? '@username'
-                          : _usernameController.text,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.white70,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
+                    // Profile Image Removed
+
+                    // Header Text Removed
                     const SizedBox(height: 20),
 
-                    // Profile Completion Bar
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cardColor,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "Profile Completion",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: textColor,
-                                  fontFamily: 'Poppins',
-                                ),
-                              ),
-                              const Text(
-                                "80%",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2575FC),
-                                  fontFamily: 'Poppins',
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: const LinearProgressIndicator(
-                              value: 0.8,
-                              backgroundColor: Color(0xFFE0E0E0),
-                              color: Color(0xFF2575FC),
-                              minHeight: 8,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+                    // Profile Completion Bar Removed
 
                     // Form Content
                     Container(
@@ -489,6 +401,7 @@ class _ModernProfileScreenState extends State<ModernProfileScreen>
                               label: "First Name",
                               controller: _firstNameController,
                               icon: Icons.person,
+                              readOnly: true,
                             ),
                             _buildTextField(
                               label: "Last Name",
@@ -507,6 +420,7 @@ class _ModernProfileScreenState extends State<ModernProfileScreen>
                               controller: _emailController,
                               icon: Icons.email,
                               keyboardType: TextInputType.emailAddress,
+                              readOnly: true,
                             ),
 
                             // Phone Number Field
@@ -538,38 +452,53 @@ class _ModernProfileScreenState extends State<ModernProfileScreen>
                                       color: Colors.grey,
                                       fontFamily: 'Poppins',
                                     ),
-                                    prefixIcon: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12.0,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Text(
-                                            "🇳🇬",
-                                            style: TextStyle(fontSize: 18),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            _countryCodeController.text,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
+                                    prefixIcon: PopupMenuButton<String>(
+                                      onSelected: (String code) {
+                                        setState(() {
+                                          _countryCodeController.text = code;
+                                        });
+                                      },
+                                      itemBuilder: (BuildContext context) => [
+                                        const PopupMenuItem(value: '+91', child: Text('🇮🇳  India (+91)')),
+                                        const PopupMenuItem(value: '+1', child: Text('🇺🇸  United States (+1)')),
+                                        const PopupMenuItem(value: '+44', child: Text('🇬🇧  United Kingdom (+44)')),
+                                        const PopupMenuItem(value: '+61', child: Text('🇦🇺  Australia (+61)')),
+                                        const PopupMenuItem(value: '+971', child: Text('🇦🇪  UAE (+971)')),
+                                        const PopupMenuItem(value: '+234', child: Text('🇳🇬  Nigeria (+234)')),
+                                      ],
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12.0,
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              _getFlag(_countryCodeController.text),
+                                              style: const TextStyle(fontSize: 18),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _countryCodeController.text,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                            const Icon(
+                                              Icons.arrow_drop_down,
                                               color: Colors.black87,
                                             ),
-                                          ),
-                                          const Icon(
-                                            Icons.arrow_drop_down,
-                                            color: Colors.black87,
-                                          ),
-                                          Container(
-                                            height: 24,
-                                            width: 1,
-                                            color: Colors.grey.shade300,
-                                            margin: const EdgeInsets.symmetric(
-                                              horizontal: 8,
+                                            Container(
+                                              height: 24,
+                                              width: 1,
+                                              color: Colors.grey.shade300,
+                                              margin: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
                                     border: OutlineInputBorder(
